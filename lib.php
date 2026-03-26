@@ -1,342 +1,285 @@
-<?php require_once("configuration.php");
-
-function formLoadFile()
-{?>
-<p> <form method="post" id="subirdocumento" name="subirdocumento" action="index.php" enctype="multipart/form-data">
-  <fieldset>
-<legend>Información del documento</legend>
-
-<ul>
-<li><label for="titulo">Titulo:</label><input id="titulo" name="titulo" type="text" value="Titulo"/></li>
-
-<li class="textarea"><label for="descripcion">Descripción:</label><textarea id="descripcion" name="descripcion" cols="50" rows="5">Descripción</textarea></li>
-<li><label for="etiqueta">Etiquetas:</label><input id="etiqueta" name="etiqueta" type="text" value="etiqueta1,etiqueta2,..."/></li>
-
-<li><label for="documento">Documento:</label>
-<input name="documento" type="file" id="documento">
-</li>
-
-</ul>
-</fieldset>
-<input type="submit" id="submit" name="submit" value="Subir Documento" />
-<input name="upLoad" id="upLoad" type="hidden" value="formUpLoad" />
-</form>
-</p>
 <?php
-}
 
-function formSearch($Search)
+require_once 'configuration.php';
+
+/* ── Formularios ─────────────────────────────────────────────────────────── */
+
+function formLoadFile(): void
 {
-$buscar=htmlspecialchars(trim($Search));
-?>
-
-<p> <form method="post" id="formSearch" name="formSearch" action="./" >
-<fieldset>
-
-<label for="search">Buscar Documentos</label><input id="search" name="search" type="text" value="<?php if($buscar) {print($buscar); } ?>" />
-
-</fieldset>
-<input type="submit" id="submit" name="submit" value="Buscar" />
-<input name="formVSearch" id="formVSearch" type="hidden" value="formSearch" />
-</form>
-</p>
-
-<?php
+    $token = htmlspecialchars($_SESSION['csrf_token'] ?? '');
+    echo <<<HTML
+    <form method="post" id="subirdocumento" name="subirdocumento"
+          action="index.php" enctype="multipart/form-data">
+      <fieldset>
+        <legend>Información del documento</legend>
+        <ul>
+          <li>
+            <label for="titulo">Título:</label>
+            <input id="titulo" name="titulo" type="text"
+                   placeholder="Título del documento" required>
+          </li>
+          <li class="textarea">
+            <label for="descripcion">Descripción:</label>
+            <textarea id="descripcion" name="descripcion" cols="50" rows="5"
+                      placeholder="Descripción del documento" required></textarea>
+          </li>
+          <li>
+            <label for="etiqueta">Etiquetas:</label>
+            <input id="etiqueta" name="etiqueta" type="text"
+                   placeholder="etiqueta1,etiqueta2,...">
+          </li>
+          <li>
+            <label for="documento">Documento:</label>
+            <input name="documento" type="file" id="documento" required>
+          </li>
+        </ul>
+      </fieldset>
+      <input type="hidden" name="upLoad"      value="formUpLoad">
+      <input type="hidden" name="csrf_token"  value="{$token}">
+      <input type="submit" id="submit" name="submit" value="Subir Documento">
+    </form>
+    HTML;
 }
 
-function formLogin()
+function formSearch(?string $search): void
 {
-?>
-<form method="post" id="formLogin" name="formLogin" action="./" >
-<fieldset>
-<legend>Inicia sesión para acceder al sistema</legend>
-<ul>
-<li><label for="user">Usuario</label><input id="user" name="user" type="text" /></li>
-<li><label for="password">Contraseña</label><input id="password" name="password" type="password" /></li>
-</ul>
-</fieldset>
-<input type="submit" id="submit" name="submit" value="Inicir sesión" />
-<input name="Login" id="Login" type="hidden" value="formLogin" />
-</form>
-<?php
+    $buscar = htmlspecialchars(trim((string) $search));
+    $token  = htmlspecialchars($_SESSION['csrf_token'] ?? '');
+    echo <<<HTML
+    <form method="post" id="formSearch" name="formSearch" action="./">
+      <fieldset>
+        <label for="search">Buscar Documentos</label>
+        <input id="search" name="search" type="search"
+               value="{$buscar}" placeholder="Palabra o frase a buscar">
+      </fieldset>
+      <input type="hidden" name="formVSearch" value="formSearch">
+      <input type="hidden" name="csrf_token"  value="{$token}">
+      <input type="submit" id="submit" name="submit" value="Buscar">
+    </form>
+    HTML;
 }
 
-function loginMember($user, $password)
+function formLogin(): void
 {
-$message;	
-if($user && $password)
-	{
-	if($user=='demo'&&$password=='demo')
-	{
-	$member=array("member"=>array(
-	"usuario"=>'demo',
-	"nombre"=>'Demo',
-	"id"=>'777'));
-	$_SESSION["Safe-Documents"] = serialize($member);	
-	$_SESSION["SESION_TIME"] = time();
-	header( "Location: ./" );
-	}
-	else 
-	{
-	$message='El Usuario o la Contraseña no son validos';
-	}	
-	}
-	else
-   {
-	$message='Se requiere un usuario y contraseña validos.'; 
-   }	
-	return $message;
+    echo <<<HTML
+    <form method="post" id="formLogin" name="formLogin" action="./">
+      <fieldset>
+        <legend>Inicia sesión para acceder al sistema</legend>
+        <ul>
+          <li>
+            <label for="user">Usuario</label>
+            <input id="user" name="user" type="text"
+                   autocomplete="username" required>
+          </li>
+          <li>
+            <label for="password">Contraseña</label>
+            <input id="password" name="password" type="password"
+                   autocomplete="current-password" required>
+          </li>
+        </ul>
+      </fieldset>
+      <input type="hidden" name="Login" value="formLogin">
+      <input type="submit" id="submit" name="submit" value="Iniciar sesión">
+    </form>
+    HTML;
 }
 
-// función para guardar documentos
-function sefeFile ($arrayDoc,$documento)
+/* ── Autenticación ───────────────────────────────────────────────────────── */
+
+function loginMember(string $user, string $password): string
 {
+    if (!$user || !$password) {
+        return 'Se requiere un usuario y contraseña válidos.';
+    }
+    // Credenciales de demostración: demo / demo
+    if ($user === 'demo' && $password === 'demo') {
+        $_SESSION['Safe-Documents'] = serialize([
+            'member' => ['usuario' => 'demo', 'nombre' => 'Demo', 'id' => 777],
+        ]);
+        $_SESSION['SESION_TIME'] = time();
+        $_SESSION['csrf_token']  = bin2hex(random_bytes(32));
+        header('Location: ./');
+        exit;
+    }
+    return 'El usuario o la contraseña no son válidos.';
+}
 
-// Sustituir especios por guion
-$archivo_usuario = str_replace(' ','-',$arrayDoc[$documento]['name']); 
+/* ── Archivos ────────────────────────────────────────────────────────────── */
 
-$tipo_archivo = $arrayDoc[$documento]['type']; 
-$tamano_archivo = $arrayDoc[$documento]['size'];
-$extencion = strrchr($arrayDoc[$documento]['name'],'.');
-
-// Rutina que asegura que no se sobre-escriban documentos
-$nuevo_archivo;
-$flag= true;
-while ($flag)
- {
-$nuevo_archivo=randString(); //.$extencion;
-if (!file_exists(pathFiles().$nuevo_archivo))
+/**
+ * Mueve el archivo subido al directorio de almacenamiento.
+ * Devuelve [nombre_interno, nombre_original] o ['NO','NO'] en caso de error.
+ */
+function sefeFile(array $files, string $campo): array
 {
-$flag= false;
+    $nombreUsuario = str_replace(' ', '-', $files[$campo]['name']);
+
+    do {
+        $nombreInterno = randString();
+    } while (file_exists(pathFiles() . $nombreInterno));
+
+    if (move_uploaded_file($files[$campo]['tmp_name'], pathFiles() . $nombreInterno)) {
+        return [$nombreInterno, $nombreUsuario];
+    }
+    return ['NO', 'NO'];
 }
- }
-//compruebo si las características del archivo son las que deseo 
-try {
 
-   if (move_uploaded_file($arrayDoc[$documento]['tmp_name'], pathFiles().$nuevo_archivo))
-   { 
-     //return $nuevo_archivo;
-	return $vector = array ( $nuevo_archivo, $archivo_usuario );
-   }
-    else
-     { 
-     // return 'NO.png';
-	 return $vector = array ( "NO", "NO" );
-     } 
-
-
-}
-catch(Exception $e)
+function randString(int $length = 32): string
 {
-echo 'Error en la Función sefeFile --> lib.php ', $e->getMessage(), "\n";
-
-exit;
-}
-}
-
-
-// función que genera una cadena aleatoria
-function randString ($length = 32)
-{  
-$string = "";
-$possible = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXY";
-$i = 0;
-while ($i < $length)
- {    
-$char = substr($possible, mt_rand(0, strlen($possible)-1), 1);
-$string .= $char;    
-$i++;  
-}  
-return $string;
+    $chars  = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    $result = '';
+    for ($i = 0; $i < $length; $i++) {
+        $result .= $chars[random_int(0, strlen($chars) - 1)];
+    }
+    return $result;
 }
 
-
-function nameFile($cod_file)
+/**
+ * Devuelve [archivo_interno, nombre_original] para el _id dado, o null.
+ */
+function nameFile(string $id): ?array
 {
-$vname_files=null;
-
-
-try {
-	
-    $connection = new Mongo();
-    $collection = $connection->safedocuments->documentos;
-    
-} catch (MongoConnectionException $e) {
-    die("Failed to connect to database " . $e->getMessage());
-}
-$doc = $collection->findOne(array('_id' => new MongoId($cod_file)));
- 
-      $vname_files[1]=$doc['nombrearchivo'];
-      $vname_files[0]=$doc['archivo'];
- 
-
-return $vname_files;
-
+    try {
+        $doc = MongoCon()->findOne(['_id' => new MongoDB\BSON\ObjectId($id)]);
+    } catch (MongoDB\BSON\InvalidArgumentException $e) {
+        return null;
+    }
+    if (!$doc) {
+        return null;
+    }
+    return [$doc['archivo'], $doc['nombrearchivo']];
 }
 
+/* ── Base de datos ───────────────────────────────────────────────────────── */
 
-
-// muestra los ultimos 10 documentos publicados
-function newsDocumentos()
-{
-
- $cursor = MongoCon()->find()->sort(array('fecha'=>-1))->limit(10);
-  while ($cursor->hasNext()):
-  $doc= $cursor->getNext();
- 
- /****************************************************************************************/
- ?>
-  <p><h3><?php echo $doc['titulo']; ?></h3> <b>Nombre Archivo:</b> <?php echo $doc['nombrearchivo']; ?> </br>
-         <?php echo $doc['descripcion']; ?>
-    <br /><a href="download.php?doc=<?php echo $doc['_id']; ?>" target="_blank">Descargar</a>|<a href="./?del=<?php echo $doc['_id']; ?>" target="_blank">Eliminar</a>|Fecha de publicación: <?php echo date('g:i a - d/m/Y', $doc['fecha']->sec); ?>
-  </p>
- 
-  <?php
- 
- /****************************************************************************************/
- endwhile;
-
-}
-
-
-function busqueda($buscar)
-{
-
-$buscar=htmlspecialchars(trim($buscar));
-
-$cursor=0;
-
-  $trozos=explode(" ",$buscar);
-   $numero=count($trozos);
-   if($numero==1) // Algoritmo de búsqueda con una palabra 
-   {
-   $regex = new MongoRegex('/'.$buscar.'/'); // ~= lyke
-     
- $cursor = MongoCon()->find(array('$or' => array(
-  array("titulo" => $regex),
-  array("descripcion" => $regex),
-  array("etiquetas" => $regex)
-)));
-
-
-  while ($cursor->hasNext()):
-  $doc= $cursor->getNext();
- 
- /****************************************************************************************/
- ?>
-  <p><h3><?php echo $doc['titulo']; ?></h3>
-         <?php echo $doc['descripcion']; ?>
-    <br /><a href="download.php?doc=<?php echo $doc['_id']; ?>" target="_blank">Descargar</a>|<a href="./?del=<?php echo $doc['_id']; ?>" target="_blank">Eliminar</a>|Fecha de publicación: <?php echo date('g:i a - d/m/Y', $doc['fecha']->sec); ?>
-  </p>
- 
-  <?php
- /****************************************************************************************/
- endwhile;
-  
-   }
-   else // Algoritmo de búsqueda con más de una palabra 
-   {
-   $m = new MongoClient(); // connect
-   $db = $collection = $m->safedocuments; // get the database named "safedocuments"
-   $collection = $db->documentos; // get the collection "bar" from database named "documentos"
-	$collection->ensureIndex(
-    array(
-        'titulo' => 'text',
-        'descripcion' => 'text',
-        'etiquetas' => 'text'
-    ));
-
-$cursor = $db->command(
-    array(
-        'text' => 'documentos', //this is the name of the collection where we are searching
-        'search' => $buscar, //the string to search
-        'limit' => 10, //the number of results, by default is 1000
-        'project' => Array( //the fields to retrieve from db
-                            'titulo' => 1,
-                            'descripcion' => 1,
-                            'fecha' => 1,
-        )
-    )
-); 
-
-//print_r($cursor);
-//print_r($cursor['results'][0]['obj']['_id']);
-//echo '</br> =>'.$cursor['results'][0]['obj']['_id'];
-
-foreach ($cursor['results'] as $array) {
-    
-   /****************************************************************************************/
- ?>
-  <p><h3><?php echo $array['obj']['titulo']; ?></h3>
-         <?php echo $array['obj']['descripcion']; ?>
-    <br /><a href="download.php?doc=<?php echo $array['obj']['_id']; ?>" target="_blank">Descargar</a>|<a href="./?del=<?php echo $array['obj']['_id']; ?>" target="_blank">Eliminar</a>|Fecha de publicación: <?php echo date('g:i a - d/m/Y', $array['obj']['fecha']->sec); ?>
-  </p>
- 
-  <?php
- /****************************************************************************************/
-
-}
-	
-   } 
-
-}
-
-function reg_document($titulo,$descripcion,$palabras_clave,$idusuario, $file,$fecha,$file_name)
-{
-   $documento=array(  
-                        'titulo' => $titulo, 
-                        'descripcion' => $descripcion, 
-                        'etiquetas' => $palabras_clave,
-                        'idusuario' => $idusuario,
-                        'archivo' => $file,
-                        'nombrearchivo' => $file_name,
-                        'fecha'  => new MongoDate());                        
- 
- try{
-    // MongoCon()->insert($documento);
-      MongoCon()->save($documento);
+function reg_document(
+    string $titulo,
+    string $descripcion,
+    string $palabras_clave,
+    int    $idUsuario,
+    string $archivo,
+    string $fecha,        // no usado en MongoDB, se guarda UTCDateTime
+    string $nombrearchivo
+): bool {
+    try {
+        MongoCon()->insertOne([
+            'titulo'        => $titulo,
+            'descripcion'   => $descripcion,
+            'etiquetas'     => $palabras_clave,
+            'idusuario'     => $idUsuario,
+            'archivo'       => $archivo,
+            'nombrearchivo' => $nombrearchivo,
+            'fecha'         => new MongoDB\BSON\UTCDateTime(),
+        ]);
         return true;
-    } catch (MongoCursorException $e)
-    {
+    } catch (MongoDB\Driver\Exception\Exception $e) {
         return false;
-    }                      
-
-	}
-	
-function del_document($idDocument)
-{
-	try{
-MongoCon()->remove(array('_id' => new MongoId($idDocument)));
-       }
-catch (Exception $e) {
-    die("Se produjo un error al intentar eliminar el documento => " . $e->getMessage());
-}
-}		
-	
-function del_file($cod_file)
-{
-if (exist_file($cod_file))
-  {	
-   try
-      {
-$vname_file=nameFile($cod_file);
-
- if (!unlink(pathFiles().$vname_file[0]))
-	     {
-          return false;
-         }
-		else { return true; }
-      }
-    catch (Exception $e) { return false; }
- }
-else {return true;}
+    }
 }
 
-function exist_file($cod_file)
+function del_document(string $id): void
 {
-$vname_file=nameFile($cod_file);
-if (file_exists(pathFiles().$vname_file[0]))
-{return true; }
-else {return false; }
+    try {
+        MongoCon()->deleteOne(['_id' => new MongoDB\BSON\ObjectId($id)]);
+    } catch (Exception $e) {
+        die('Error al eliminar el documento: ' . $e->getMessage());
+    }
 }
-?>
+
+function del_file(string $id): bool
+{
+    if (!exist_file($id)) {
+        return true;
+    }
+    $vfile = nameFile($id);
+    if (!$vfile) {
+        return true;
+    }
+    return @unlink(pathFiles() . $vfile[0]);
+}
+
+function exist_file(string $id): bool
+{
+    $vfile = nameFile($id);
+    return $vfile && file_exists(pathFiles() . $vfile[0]);
+}
+
+/* ── Presentación ────────────────────────────────────────────────────────── */
+
+function newsDocumentos(): void
+{
+    $cursor = MongoCon()->find(
+        [],
+        ['sort' => ['fecha' => -1], 'limit' => 10]
+    );
+    echo '<h2>Últimas publicaciones</h2>';
+    foreach ($cursor as $doc) {
+        $fecha = $doc['fecha'] instanceof MongoDB\BSON\UTCDateTime
+            ? $doc['fecha']->toDateTime()->format('g:i a - d/m/Y')
+            : '—';
+        _renderDocumento(
+            htmlspecialchars($doc['titulo']  ?? ''),
+            htmlspecialchars($doc['descripcion'] ?? ''),
+            (string) $doc['_id'],
+            $fecha
+        );
+    }
+}
+
+/**
+ * Búsqueda en una o varias palabras.
+ *   - 1 palabra  → Regex (equivalente a LIKE) en título, descripción y etiquetas.
+ *   - 2+ palabras → Índice de texto completo ($text).
+ */
+function busqueda(string $buscar): void
+{
+    $terminos = array_filter(explode(' ', trim($buscar)));
+
+    if (count($terminos) === 1) {
+        $regex  = new MongoDB\BSON\Regex(preg_quote($buscar, '/'), 'i');
+        $cursor = MongoCon()->find([
+            '$or' => [
+                ['titulo'      => $regex],
+                ['descripcion' => $regex],
+                ['etiquetas'   => $regex],
+            ],
+        ]);
+    } else {
+        // Crea el índice de texto (idempotente)
+        MongoCon()->createIndex(
+            ['titulo' => 'text', 'descripcion' => 'text', 'etiquetas' => 'text'],
+            ['name' => 'text_search']
+        );
+        $cursor = MongoCon()->find(
+            ['$text' => ['$search' => $buscar]],
+            ['limit' => 10]
+        );
+    }
+
+    foreach ($cursor as $doc) {
+        $fecha = $doc['fecha'] instanceof MongoDB\BSON\UTCDateTime
+            ? $doc['fecha']->toDateTime()->format('g:i a - d/m/Y')
+            : '—';
+        _renderDocumento(
+            htmlspecialchars($doc['titulo']      ?? ''),
+            htmlspecialchars($doc['descripcion'] ?? ''),
+            (string) $doc['_id'],
+            $fecha
+        );
+    }
+}
+
+function _renderDocumento(string $titulo, string $descripcion, string $id, string $fecha): void
+{
+    echo <<<HTML
+    <article>
+      <h3>{$titulo}</h3>
+      <p>{$descripcion}</p>
+      <p>
+        <a href="download.php?doc={$id}" target="_blank">Descargar</a> |
+        <a href="./?del={$id}">Eliminar</a> |
+        Fecha de publicación: {$fecha}
+      </p>
+    </article>
+    HTML;
+}

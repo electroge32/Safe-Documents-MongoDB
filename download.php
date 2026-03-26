@@ -1,58 +1,43 @@
-<?php session_start();
-require_once("./lib.php");
+<?php
 
-//Valida si el usuario esta logueado
+session_start();
+require_once './lib.php';
 
- if(isset($_SESSION["Safe-Documents"]))
-  {
-
-// captura las varibles del enlace
-if(isset($_GET["doc"]))
-{
-
-$cod_file=htmlspecialchars($_GET["doc"]);
-
-
-//identifica la ruta 
-$path=pathFiles();
-
-// varibles nombre de archivo
-$Vfile=null;
-
-$Vfile=nameFile($cod_file);
-	
-if($Vfile[0])
-{
-    $vBarras = array("/", "\\");
-    $sDocumento =  $path.str_replace($vBarras, "_", $Vfile[0]);
-	    
-    if (file_exists($sDocumento))
-
-    {	
-        header("Content-type: application/force-download");
-        header("Content-Disposition: attachment; filename=".basename($Vfile[1]));
-        header("Content-Transfer-Encoding: binary");
-        header("Content-Length: ".filesize($sDocumento));
-        readfile($sDocumento);
-    }
-    else
-    {
-        echo "<br>El documento solicitado, no esta disponible, por favor póngase en contacto con el administrador del sistema. ";
-    }
+// Solo usuarios autenticados pueden descargar
+if (!isset($_SESSION['Safe-Documents'])) {
+    header('Location: ./');
+    exit;
 }
-else
-{
-        echo "<br>El documento solicitado, no existe, por favor póngase en contacto con el administrador del sistema. ";
-	}
-  }
-  else
-  {
-header ("Location: ./");
-	  }
-  
-  }
-  else
-  {
-header ("Location: ./");
-	  }
-?> 
+
+if (!isset($_GET['doc'])) {
+    header('Location: ./');
+    exit;
+}
+
+$id   = htmlspecialchars($_GET['doc']);
+$path = pathFiles();
+$info = nameFile($id);
+
+if (!$info || !$info[0]) {
+    echo 'El documento solicitado no existe. Contacta al administrador del sistema.';
+    exit;
+}
+
+$vBarras    = ['/', '\\'];
+$rutaFisica = $path . str_replace($vBarras, '_', $info[0]);
+
+if (!file_exists($rutaFisica)) {
+    echo 'El documento solicitado no estÃ¡ disponible. Contacta al administrador del sistema.';
+    exit;
+}
+
+$nombreDescarga = basename($info[1]);
+$tamano         = filesize($rutaFisica);
+
+header('Content-Type: application/octet-stream');
+header('Content-Disposition: attachment; filename="' . $nombreDescarga . '"');
+header('Content-Transfer-Encoding: binary');
+header('Content-Length: ' . $tamano);
+header('Cache-Control: no-store');
+
+readfile($rutaFisica);

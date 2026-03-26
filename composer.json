@@ -1,0 +1,12 @@
+{
+    "name": "electroge32/safe-documents-mongodb",
+    "description": "Sistema de gestión de documentos con MongoDB — demo educativo",
+    "type": "project",
+    "require": {
+        "php": ">=8.0",
+        "mongodb/mongodb": "^1.17"
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}

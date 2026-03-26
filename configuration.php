@@ -1,66 +1,54 @@
 <?php
 
-function MongoCon() {
-	
-	try {
-    $connection = new Mongo();
-    $collection = $connection->safedocuments->documentos;
-    return $collection;
-} catch (MongoConnectionException $e) {
-    die("Fallo en la conexión a la base de datos " . $e->getMessage());
-    
-}
-	
-}
+require_once __DIR__ . '/vendor/autoload.php';
 
-// Retorna la ruta donde se almacenan los archivos
-function pathFiles()
+date_default_timezone_set('America/Bogota');
+
+/**
+ * Retorna la colección MongoDB (singleton).
+ * Edita la URI de conexión si tu servidor no corre en localhost:27017.
+ */
+function MongoCon(): MongoDB\Collection
 {
-// Definir directorio donde almacenar archivos, debe terminar eb "/"
-$directorio="KWE54O31MDORBOJRFRPLMM8C7H24LQQR/";
-
-try { 
-$path="./".$directorio;	
-
-if (!file_exists($path)) {
-mkdir($path, 0755);
+    static $collection = null;
+    if ($collection !== null) {
+        return $collection;
+    }
+    try {
+        $client     = new MongoDB\Client('mongodb://localhost:27017');
+        $collection = $client->safedocuments->documentos;
+        return $collection;
+    } catch (MongoDB\Driver\Exception\ConnectionException $e) {
+        die('Fallo en la conexión a MongoDB: ' . $e->getMessage());
+    }
 }
 
-writeHtaccess($path);
-
-return $path;
-  } 
-
-catch (Exception $e) 
- {
-	 echo $e;
-  return false;
- }
-}
-
-
-function writeHtaccess($path)
+/**
+ * Retorna la ruta del directorio de almacenamiento de archivos.
+ * Lo crea si no existe y le aplica protección .htaccess.
+ */
+function pathFiles(): string
 {
-// htaccess documentos
-if(!file_exists($path.'.htaccess'))
-{
-$htaccess_content="Order allow,deny
-Deny from all";
-$file = fopen($path.'.htaccess' , "w+");
-fwrite($file, $htaccess_content);
-}
-// htaccess Raiz
-if(!file_exists('./.htaccess'))
-{
-$htaccess_content="Options -Indexes
-Options +FollowSymlinks
-RewriteEngine on
-#RewriteBase /safeDocumentsMongoDB/
-RewriteRule ^([a-zA-Z]+).html$ index.php?req=$1";
-$file = fopen('./.htaccess' , "w+");
-fwrite($file, $htaccess_content);
+    $path = './KWE54O31MDORBOJRFRPLMM8C7H24LQQR/';
+    if (!file_exists($path)) {
+        mkdir($path, 0755, true);
+    }
+    writeHtaccess($path);
+    return $path;
 }
 
+function writeHtaccess(string $path): void
+{
+    if (!file_exists($path . '.htaccess')) {
+        file_put_contents($path . '.htaccess', "Order allow,deny\nDeny from all\n");
+    }
+    if (!file_exists('./.htaccess')) {
+        file_put_contents('./.htaccess',
+            "Options -Indexes\n" .
+            "Options +FollowSymlinks\n" .
+            "RewriteEngine on\n" .
+            "#RewriteBase /safeDocumentsMongoDB/\n" .
+            "RewriteRule ^([a-zA-Z]+)\\.html$ index.php?req=\$1 [L]\n"
+        );
+    }
 }
-
-?>
